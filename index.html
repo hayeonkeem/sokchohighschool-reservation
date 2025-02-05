@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+   <meta charset="utf-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+   <title>속초고등학교 공간 예약 서비스</title>
+   <!-- Bootstrap CSS & Icons -->
+   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet" />
+   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+   <style>
+       .seat-grid {
+           display: grid;
+           grid-template-columns: repeat(5, 1fr);
+           gap: 10px;
+       }
+   </style>
+</head>
+<body>
+   <!-- Navbar -->
+   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+       <div class="container px-lg-5">
+           <a class="navbar-brand" href="#!">속초고등학교(Sokcho High School)</a>
+           <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+               <span class="navbar-toggler-icon"></span>
+           </button>
+           <div class="collapse navbar-collapse" id="navbarSupportedContent">
+               <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                   <li class="nav-item"><a class="nav-link active" href="#!">홈</a></li>
+                   <li class="nav-item"><a class="nav-link" href="#!">공간 예약</a></li>
+                   <li class="nav-item"><a class="nav-link" href="#!">문의</a></li>
+               </ul>
+           </div>
+       </div>
+   </nav>
+
+   <!-- Header with Form -->
+   <header class="py-5">
+       <div class="container px-lg-5">
+           <div class="p-4 p-lg-5 bg-light rounded-3">
+               <h2 class="text-center mb-4">공간 예약</h2>
+               <form id="reservation-form">
+                   <div class="row g-3">
+                       <div class="col-md-6">
+                           <label class="form-label">이름</label>
+                           <input type="text" id="name" class="form-control" required>
+                       </div>
+                       <div class="col-md-6">
+                           <label class="form-label">학번</label>
+                           <input type="text" id="student-id" class="form-control" required>
+                       </div>
+                       <div class="col-md-6">
+                           <label class="form-label">이메일</label>
+                           <input type="email" id="email" class="form-control" required>
+                       </div>
+                       <div class="col-md-6">
+                           <label class="form-label">예약 날짜</label>
+                           <input type="date" id="date" class="form-control" required>
+                       </div>
+                       <div class="col-md-6">
+                           <label class="form-label">공간 유형</label>
+                           <select id="room-type" class="form-select" required>
+                               <option value="study">개별 학습실</option>
+                               <option value="discussion">독서토론실</option>
+                           </select>
+                       </div>
+                       <div class="col-md-6">
+                           <label class="form-label">예약 시간</label>
+                           <select id="time-slot" class="form-select" required>
+                               <option>07:30 - 08:30</option>
+                               <option>12:30 - 13:30</option>
+                               <option>16:30 - 17:30</option>
+                               <option value="thursday">(목요일 한정) 15:30 - 16:30</option>
+                           </select>
+                       </div>
+                       
+                       <!-- 좌석 선택 섹션 -->
+                       <div id="seat-selection" class="col-12 d-none">
+                           <div class="card p-3 mt-3">
+                               <label class="form-label">층 선택</label>
+                               <select id="floor" class="form-select mb-3">
+                                   <option value="2F">2층</option>
+                                   <option value="4F">4층</option>
+                               </select>
+                               <label class="form-label">좌석 선택</label>
+                               <div id="seat-buttons" class="seat-grid">
+                                   <!-- 좌석 버튼 동적 생성 -->
+                               </div>
+                               <input type="hidden" id="seat" name="seat" required>
+                           </div>
+                       </div>
+
+                       <div class="col-12 text-center mt-4">
+                           <button type="submit" class="btn btn-primary btn-lg px-5">예약하기</button>
+                       </div>
+                   </div>
+               </form>
+               <div id="confirmation" class="alert alert-success mt-4 d-none" role="alert">
+                   예약이 완료되었습니다!
+               </div>
+           </div>
+       </div>
+   </header>
+
+   <!-- Footer -->
+   <footer class="py-5 bg-dark">
+       <div class="container">
+           <p class="m-0 text-center text-white">Copyright &copy; @chem_is_try 2025</p>
+       </div>
+   </footer>
+
+   <!-- Bootstrap JS -->
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+   
+   <!-- Reservation Script -->
+   <script>
+       document.addEventListener('DOMContentLoaded', function () {
+           const roomType = document.getElementById('room-type');
+           const seatSelection = document.getElementById('seat-selection');
+           const seatButtonsContainer = document.getElementById('seat-buttons');
+           let reservedSeats = [];
+           let selectedSeat = null;
+
+           function generateSeats() {
+               seatButtonsContainer.innerHTML = '';
+               for (let i = 1; i <= 10; i++) {
+                   const button = document.createElement('button');
+                   button.type = 'button';
+                   button.className = 'btn btn-outline-secondary seat w-100 py-3';
+                   button.dataset.seat = i;
+                   button.textContent = i;
+
+                   button.addEventListener('click', function () {
+                       if (!this.classList.contains('btn-danger')) {
+                           if (selectedSeat) {
+                               selectedSeat.classList.remove('btn-primary');
+                               selectedSeat.classList.add('btn-outline-secondary');
+                           }
+                           this.classList.remove('btn-outline-secondary');
+                           this.classList.add('btn-primary');
+                           selectedSeat = this;
+                           document.getElementById('seat').value = this.dataset.seat;
+                       }
+                   });
+
+                   seatButtonsContainer.appendChild(button);
+               }
+               fetchReservedSeats();
+           }
+
+           async function fetchReservedSeats() {
+               try {
+                   const response = await fetch("/api/notion", {
+                       method: "POST",
+                       headers: {
+                           "Content-Type": "application/json"
+                       },
+                       body: JSON.stringify({
+                           filter: {
+                               property: "예약 날짜",
+                               date: {
+                                   equals: document.getElementById('date').value
+                               }
+                           }
+                       })
+                   });
+                   
+                   const data = await response.json();
+                   reservedSeats = data.results.map(record => 
+                       parseInt(record.properties["좌석 번호"]?.number || 0)
+                   ).filter(seat => seat > 0);
+                   
+                   updateSeatColors();
+               } catch (error) {
+                   console.error('예약 데이터 가져오기 실패:', error);
+               }
+           }
+
+           function updateSeatColors() {
+               document.querySelectorAll('.seat').forEach(button => {
+                   const seatNumber = parseInt(button.dataset.seat);
+                   if (reservedSeats.includes(seatNumber)) {
+                       button.classList.remove('btn-outline-secondary');
+                       button.classList.add('btn-danger');
+                       button.disabled = true;
+                   }
+               });
+           }
+
+           function toggleSeatSelection() {
+               if (roomType.value === 'study') {
+                   seatSelection.classList.remove('d-none');
+                   generateSeats();
+               } else {
+                   seatSelection.classList.add('d-none');
+               }
+           }
+
+           toggleSeatSelection();
+           roomType.addEventListener('change', toggleSeatSelection);
+           document.getElementById('date').addEventListener('change', fetchReservedSeats);
+
+           document.getElementById('reservation-form').addEventListener('submit', async function (e) {
+               e.preventDefault();
+
+               const formData = {
+                   name: document.getElementById('name').value,
+                   studentId: document.getElementById('student-id').value,
+                   email: document.getElementById('email').value,
+                   date: document.getElementById('date').value,
+                   roomType: document.getElementById('room-type').value,
+                   floor: document.getElementById('floor')?.value || "",
+                   seat: document.getElementById('seat').value,
+                   timeSlot: document.getElementById('time-slot').value
+               };
+
+               if (formData.roomType === 'study' && !formData.seat) {
+                   alert('좌석을 선택해주세요!');
+                   return;
+               }
+
+               const selectedDate = new Date(formData.date);
+               const today = new Date();
+               today.setHours(0, 0, 0, 0);
+               
+               if (selectedDate < today) {
+                   alert('과거 날짜는 선택할 수 없습니다!');
+                   return;
+               }
+
+               try {
+                   const response = await fetch("/api/notion", {
+                       method: "POST",
+                       headers: {
+                           "Content-Type": "application/json"
+                       },
+                       body: JSON.stringify({
+                           parent: { database_id: "18f137a305b880bda156dcddbd9d0734" },
+                           properties: {
+                               "이름": { title: [{ text: { content: formData.name } }] },
+                               "학번": { rich_text: [{ text: { content: formData.studentId } }] },
+                               "이메일": { email: formData.email },
+                               "예약 날짜": { date: { start: formData.date } },
+                               "공간 유형": { select: { name: formData.roomType } },
+                               "층 선택": { rich_text: [{ text: { content: formData.floor } }] },
+                               "좌석 번호": { number: parseInt(formData.seat) },
+                               "예약 시간": { select: { name: formData.timeSlot } }
+                           }
+                       })
+                   });
+
+                   if (response.ok) {
+                       document.getElementById('confirmation').classList.remove('d-none');
+                       this.reset();
+                       if (selectedSeat) {
+                           selectedSeat.classList.remove('btn-primary');
+                           selectedSeat.classList.add('btn-outline-secondary');
+                       }
+                       selectedSeat = null;
+                       fetchReservedSeats();
+                       
+                       setTimeout(() => {
+                           document.getElementById('confirmation').classList.add('d-none');
+                       }, 3000);
+                   } else {
+                       throw new Error('예약 실패');
+                   }
+               } catch (error) {
+                   console.error('예약 오류:', error);
+                   alert("예약 중 오류가 발생했습니다. 다시 시도해주세요.");
+               }
+           });
+       });
+   </script>
+</body>
+</html>
