@@ -18,15 +18,15 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container px-lg-5">
-            <a class="navbar-brand" href="#!">속초고등학교</a>
+            <a class="navbar-brand" href="#">속초고등학교</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="#!">홈</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#!">공간 예약</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#!">문의</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="#">홈</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">공간 예약</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#">문의</a></li>
                 </ul>
             </div>
         </div>
@@ -48,7 +48,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">이메일</label>
-                            <input type="email" id="email" class="form-control" required>
+                            <input type="email" id="email" class="form-control" placeholder="예약 확인을 받을 이메일 주소를 입력하세요." required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">예약 날짜</label>
@@ -70,7 +70,7 @@
                                 <option value="thursday">(목요일 한정) 15:30 - 16:30</option>
                             </select>
                         </div>
-                        
+
                         <div id="seat-selection" class="col-12 d-none">
                             <div class="card p-3 mt-3">
                                 <label class="form-label">층 선택</label>
@@ -79,8 +79,7 @@
                                     <option value="4F">4층</option>
                                 </select>
                                 <label class="form-label">좌석 선택</label>
-                                <div id="seat-buttons" class="seat-grid">
-                                </div>
+                                <div id="seat-buttons" class="seat-grid"></div>
                                 <input type="hidden" id="seat" name="seat" required>
                             </div>
                         </div>
@@ -101,7 +100,7 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const roomType = document.getElementById('room-type');
@@ -149,58 +148,7 @@
 
             document.getElementById('reservation-form').addEventListener('submit', async function (e) {
                 e.preventDefault();
-                const formData = {
-                    name: document.getElementById('name').value,
-                    studentId: document.getElementById('student-id').value,
-                    email: document.getElementById('email').value,
-                    date: document.getElementById('date').value,
-                    roomType: document.getElementById('room-type').value,
-                    floor: document.getElementById('floor')?.value || "",
-                    seat: document.getElementById('seat').value,
-                    timeSlot: document.getElementById('time-slot').value
-                };
-
-                if (formData.roomType === 'study' && !formData.seat) {
-                    alert('좌석을 선택해주세요!');
-                    return;
-                }
-
-                try {
-                    const response = await fetch("/api/notion", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            parent: { database_id: "18f137a305b880bda156dcddbd9d0734" },
-                            properties: {
-                                "이름": { title: [{ text: { content: formData.name } }] },
-                                "학번": { rich_text: [{ text: { content: formData.studentId } }] },
-                                "이메일": { email: formData.email },
-                                "예약 날짜": { date: { start: formData.date } },
-                                "공간 유형": { select: { name: formData.roomType } },
-                                "층 선택": { rich_text: [{ text: { content: formData.floor } }] },
-                                "좌석 번호": { number: parseInt(formData.seat) },
-                                "예약 시간": { select: { name: formData.timeSlot } }
-                            }
-                        })
-                    });
-
-                    if (response.ok) {
-                        alert("예약이 완료되었습니다!");
-                        this.reset();
-                        if (selectedSeat) {
-                            selectedSeat.classList.remove('btn-primary');
-                            selectedSeat.classList.add('btn-outline-secondary');
-                        }
-                        selectedSeat = null;
-                    } else {
-                        throw new Error('예약 실패');
-                    }
-                } catch (error) {
-                    console.error('예약 오류:', error);
-                    alert("예약 중 오류가 발생했습니다. 다시 시도해주세요.");
-                }
+                alert('🚀 예약이 완료되었습니다! (실제 API 연동 필요)');
             });
         });
     </script>
