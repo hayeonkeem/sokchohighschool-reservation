@@ -9,28 +9,34 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
 
-    // ✅ 1. Notion API Key & Database ID 디버깅 출력
-    console.log("🔑 NOTION_API_KEY:", process.env.NOTION_API_KEY ? "✅ 존재함" : "❌ 없음");
-    console.log("📂 NOTION_DATABASE_ID:", process.env.NOTION_DATABASE_ID);
-
     const notion = new Client({
         auth: process.env.NOTION_API_KEY
     });
 
     try {
-        // ✅ 2. 요청 데이터 디버깅
-        console.log("📨 요청 데이터:", req.body);
+        const { name, studentId, email, date, roomType, floor, seat, timeSlot } = req.body;
 
-        const response = await notion.pages.create(req.body);
+        if (!name || !studentId || !email || !date || !roomType) {
+            return res.status(400).json({ error: "모든 필드를 입력해야 합니다." });
+        }
 
-        // ✅ 3. 응답 데이터 디버깅
-        console.log("✅ Notion 응답:", response);
+        const response = await notion.pages.create({
+            parent: { database_id: process.env.NOTION_DATABASE_ID },  // ✅ 여기가 핵심
+            properties: {
+                "이름": { title: [{ text: { content: name } }] },
+                "학번": { rich_text: [{ text: { content: studentId } }] },
+                "이메일": { email: email },
+                "예약 날짜": { date: { start: date } },
+                "공간 유형": { select: { name: roomType } },
+                "층 선택": { rich_text: [{ text: { content: floor || "" } }] },
+                "좌석 번호": seat ? { number: parseInt(seat) } : undefined,
+                "예약 시간": { select: { name: timeSlot } }
+            }
+        });
 
-        return res.status(200).json(response);
+        res.status(200).json(response);
     } catch (error) {
-        // ❌ 4. 오류 발생 시, 상세 로그 출력
-        console.error("🚨 Notion API 오류 발생:", error);
-
-        return res.status(500).json({ error: error.message });
+        console.error("Notion API error:", error);
+        res.status(500).json({ error: error.message });
     }
 }
