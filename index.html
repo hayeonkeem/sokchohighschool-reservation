@@ -13,6 +13,11 @@
             gap: 10px;
             padding: 10px;
         }
+        .reserved {
+            background-color: red !important;
+            color: white;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -98,21 +103,42 @@
             const seatSelection = document.getElementById("seat-selection");
             const seatButtonsContainer = document.getElementById("seat-buttons");
             const floorSelection = document.getElementById("floor-selection");
+            const dateInput = document.getElementById("date");
+            const timeSlot = document.getElementById("time-slot");
+            const specialTime = timeSlot.querySelector("option[value='thursday']");
 
-            function generateSeats() {
+            function generateSeats(reservedSeats = []) {
                 seatButtonsContainer.innerHTML = "";
                 for (let i = 1; i <= 10; i++) {
                     const button = document.createElement("button");
                     button.type = "button";
-                    button.className = "btn btn-outline-secondary seat w-100 py-3";
+                    button.className = `btn btn-outline-secondary seat w-100 py-3 ${reservedSeats.includes(i) ? "reserved" : ""}`;
                     button.dataset.seat = i;
                     button.textContent = i;
-                    button.addEventListener("click", function () {
-                        document.querySelectorAll(".seat").forEach(btn => btn.classList.remove("btn-primary"));
-                        this.classList.add("btn-primary");
-                        document.getElementById("seat").value = this.dataset.seat;
-                    });
+
+                    if (!reservedSeats.includes(i)) {
+                        button.addEventListener("click", function () {
+                            document.querySelectorAll(".seat").forEach(btn => btn.classList.remove("btn-primary"));
+                            this.classList.add("btn-primary");
+                            document.getElementById("seat").value = this.dataset.seat;
+                        });
+                    }
+
                     seatButtonsContainer.appendChild(button);
+                }
+            }
+
+            async function fetchReservedSeats() {
+                const date = dateInput.value;
+                const time = timeSlot.value;
+                if (!date || !time) return;
+
+                try {
+                    const response = await fetch(`/api/reserved-seats?date=${date}&time=${time}`);
+                    const data = await response.json();
+                    generateSeats(data.reservedSeats || []);
+                } catch (error) {
+                    console.error("🚨 예약된 좌석 데이터를 불러오는 중 오류 발생:", error);
                 }
             }
 
@@ -120,70 +146,55 @@
                 if (roomType.value === "study") {
                     seatSelection.classList.remove("d-none");
                     floorSelection.classList.remove("d-none");
-                    generateSeats();
+                    fetchReservedSeats();
                 } else {
                     seatSelection.classList.add("d-none");
                     floorSelection.classList.add("d-none");
-                    document.getElementById("seat").value = ""; 
-                    document.getElementById("floor").value = "";
+                    document.getElementById("seat").value = "";
                 }
             }
 
+            dateInput.addEventListener("change", function () {
+                const selectedDate = new Date(dateInput.value);
+                const day = selectedDate.getDay();
+
+                if (day === 6 || day === 0) {
+                    alert("🚫 토요일과 일요일에는 예약할 수 없습니다.");
+                    dateInput.value = "";
+                } else {
+                    specialTime.disabled = day !== 4;
+                }
+
+                fetchReservedSeats();
+            });
+
+            timeSlot.addEventListener("change", fetchReservedSeats);
             roomType.addEventListener("change", toggleSelections);
             toggleSelections();
 
             document.getElementById("reservation-form").addEventListener("submit", async function (e) {
                 e.preventDefault();
 
-                const roomTypeValue = document.getElementById("room-type").value;
-                const seatInput = document.getElementById("seat").value;
-                const floorInput = document.getElementById("floor").value;
-                
-                let seatValue = "";
-                let floorValue = "";
-
-                if (roomTypeValue === "study") {
-                    if (!seatInput) {
-                        alert("🚨 좌석을 선택해주세요!");
-                        return;
-                    }
-                    seatValue = seatInput;
-
-                    if (!floorInput) {
-                        alert("🚨 층을 선택해주세요!");
-                        return;
-                    }
-                    floorValue = floorInput;
+                if (roomType.value === "study" && !document.getElementById("seat").value) {
+                    alert("🚨 좌석을 선택해주세요!");
+                    return;
                 }
-
-                const formData = {
-                    name: document.getElementById("name")?.value || "",
-                    studentId: document.getElementById("student-id")?.value || "",
-                    email: document.getElementById("email")?.value || "",
-                    date: document.getElementById("date")?.value || "",
-                    roomType: roomTypeValue,
-                    floor: floorValue,
-                    seat: seatValue,
-                    timeSlot: document.getElementById("time-slot")?.value || ""
-                };
 
                 try {
                     const response = await fetch("/api/notion", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(formData),
+                        body: JSON.stringify(Object.fromEntries(new FormData(this))),
                     });
 
                     if (response.ok) {
                         alert("✅ 예약이 완료되었습니다!");
-                        document.getElementById("reservation-form").reset();
-                        seatButtonsContainer.innerHTML = "";
+                        this.reset();
                     } else {
-                        throw new Error("예약 실패");
+                        throw new Error();
                     }
-                } catch (error) {
-                    console.error("예약 오류:", error);
-                    alert("❌ 예약 중 오류가 발생했습니다. 다시 시도해주세요.");
+                } catch {
+                    alert("🚨 예약 중 오류가 발생했습니다.");
                 }
             });
         });
