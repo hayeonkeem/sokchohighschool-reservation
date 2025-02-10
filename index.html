@@ -14,7 +14,7 @@
             padding: 10px;
         }
         .reserved {
-            background-color: #6c757d !important;
+            background-color: #dc3545 !important;
             color: white !important;
             cursor: not-allowed;
             opacity: 1;
@@ -28,13 +28,15 @@
             border: none;
         }
         .reserved:hover {
-            background-color: #6c757d !important;
+            background-color: #dc3545 !important;
             color: white !important;
             cursor: not-allowed;
         }
         .school-logo {
             height: 40px;
+            width: 40px;
             margin-right: 10px;
+            object-fit: contain;
         }
     </style>
 </head>
@@ -42,7 +44,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container px-lg-5">
             <a class="navbar-brand" href="#!">
-                <img src="/mascot.png" alt="속초고 마스코트" class="school-logo">
+                <img src="/mascot.png" alt="마스코트" class="school-logo">
                 속초고등학교
             </a>
         </div>
@@ -81,10 +83,10 @@
                             <label class="form-label">예약 시간</label>
                             <select id="time-slot" class="form-select" required>
                                 <option value="">시간을 선택하세요</option>
-                                <option value="0730">07:30 - 08:30</option>
-                                <option value="1230">12:30 - 13:30</option>
-                                <option value="1630">16:30 - 17:30</option>
-                                <option value="thursday">(목요일 한정) 15:30 - 16:30</option>
+                                <option value="07:30 - 08:30">07:30 - 08:30</option>
+                                <option value="12:30 - 13:30">12:30 - 13:30</option>
+                                <option value="16:30 - 17:30">16:30 - 17:30</option>
+                                <option value="(목요일 한정) 15:30 - 16:30">(목요일 한정) 15:30 - 16:30</option>
                             </select>
                         </div>
                         
@@ -128,7 +130,7 @@
             const floorSelection = document.getElementById("floor-selection");
             const dateInput = document.getElementById("date");
             const timeSlot = document.getElementById("time-slot");
-            const specialTime = timeSlot.querySelector('option[value="thursday"]');
+            const specialTime = timeSlot.querySelector('option[value="(목요일 한정) 15:30 - 16:30"]');
 
             // 날짜 제한 설정
             const today = new Date();
@@ -172,10 +174,10 @@
                     const response = await fetch(`/api/reserved-seats?date=${date}&time=${timeSlot}`, {
                         method: 'GET',
                         headers: {
+                            'Accept': 'application/json',
                             'Content-Type': 'application/json'
                         }
                     });
-                    console.log("API 응답:", response);
                     
                     if (!response.ok) {
                         const errorData = await response.json();
@@ -187,7 +189,6 @@
                     return data.reservedSeats || [];
                 } catch (error) {
                     console.error("🚨 API 호출 오류:", error);
-                    alert("좌석 정보를 불러오는데 실패했습니다: " + error.message);
                     return [];
                 }
             }
@@ -282,7 +283,7 @@
                         specialTime.disabled = false;
                     } else {
                         specialTime.disabled = true;
-                        if (timeSlot.value === "thursday") {
+                        if (timeSlot.value === "(목요일 한정) 15:30 - 16:30") {
                             timeSlot.value = "";
                         }
                     }
@@ -314,7 +315,7 @@
                     roomType: roomType.value,
                     floor: document.getElementById("floor").value || "N/A",
                     seat: document.getElementById("seat").value || "N/A",
-                    timeSlot: timeSlot.options[timeSlot.selectedIndex].text
+                    timeSlot: timeSlot.value
                 };
 
                 // 유효성 검사
@@ -345,7 +346,10 @@
                     
                     const response = await fetch("/api/notion", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { 
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
                         body: JSON.stringify(formData),
                     });
 
@@ -355,7 +359,7 @@
                     }
 
                     alert("✅ 예약이 완료되었습니다!");
-                    resetForm(); // 폼 초기화 함수 호출
+                    resetForm();
                 } catch (error) {
                     console.error("예약 오류:", error);
                     alert(`❌ ${error.message || "예약 중 오류가 발생했습니다. 다시 시도해주세요."}`);
