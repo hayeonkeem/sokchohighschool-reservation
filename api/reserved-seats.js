@@ -2,7 +2,6 @@
 import { Client } from "@notionhq/client";
 
 export default async function handler(req, res) {
-    // CORS 헤더 설정
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -12,7 +11,7 @@ export default async function handler(req, res) {
     }
 
     const { date, time } = req.query;
-    console.log("Received query:", { date, time }); // 디버깅 로그 1
+    console.log("API 요청 받음:", { date, time });
     
     if (!date || !time) {
         return res.status(400).json({ message: '날짜와 시간을 모두 지정해주세요.' });
@@ -21,20 +20,17 @@ export default async function handler(req, res) {
     try {
         const notion = new Client({ auth: process.env.NOTION_API_KEY });
         
-        // 간단한 테스트를 위해 직접 시간 매핑
-        const timeMapping = {
-            "07:30 - 08:30": "07:30 - 08:30",
-            "12:30 - 13:30": "12:30 - 13:30",
-            "16:30 - 17:30": "16:30 - 17:30",
-            "(목요일 한정) 15:30 - 16:30": "(목요일 한정) 15:30 - 16:30",
-            "0730": "07:30 - 08:30",
-            "1230": "12:30 - 13:30",
-            "1630": "16:30 - 17:30",
-            "thursday": "(목요일 한정) 15:30 - 16:30"
-        };
+        // 시간 형식 변환
+        let notionTimeFormat;
+        switch(time) {
+            case "0730": notionTimeFormat = "07:30 - 08:30"; break;
+            case "1230": notionTimeFormat = "12:30 - 13:30"; break;
+            case "1630": notionTimeFormat = "16:30 - 17:30"; break;
+            case "thursday": notionTimeFormat = "(목요일 한정) 15:30 - 16:30"; break;
+            default: notionTimeFormat = time;
+        }
 
-        const mappedTime = timeMapping[time] || time;
-        console.log("Mapped time:", mappedTime); // 디버깅 로그 2
+        console.log("Notion 시간 형식:", notionTimeFormat);
 
         const response = await notion.databases.query({
             database_id: process.env.NOTION_DATABASE_ID,
@@ -49,7 +45,7 @@ export default async function handler(req, res) {
                     {
                         property: "예약 시간",
                         select: {
-                            equals: mappedTime
+                            equals: notionTimeFormat
                         }
                     },
                     {
@@ -62,32 +58,30 @@ export default async function handler(req, res) {
             }
         });
 
-        console.log("Notion response:", JSON.stringify(response.results, null, 2)); // 디버깅 로그 3
+        console.log("Notion 응답:", response.results);
 
         const reservedSeats = response.results
             .map(page => {
                 const seatNum = page.properties["좌석 번호"]?.select?.name;
-                console.log("Found seat:", seatNum); // 디버깅 로그 4
-                return seatNum;
+                return seatNum ? Number(seatNum) : null;
             })
-            .filter(seat => seat && seat !== "N/A")
-            .map(seat => Number(seat));
+            .filter(seat => seat !== null && seat !== "N/A");
 
-        console.log("Final reserved seats:", reservedSeats); // 디버깅 로그 5
+        console.log("예약된 좌석:", reservedSeats);
 
         return res.status(200).json({ 
             reservedSeats,
             debug: {
-                originalTime: time,
-                mappedTime,
+                requestTime: time,
+                notionTime: notionTimeFormat,
                 resultsCount: response.results.length
             }
         });
     } catch (error) {
-        console.error("Notion API Error:", error);
+        console.error("Notion API 오류:", error);
         return res.status(500).json({ 
             error: error.message,
-            stack: error.stack
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 }
