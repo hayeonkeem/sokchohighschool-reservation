@@ -14,6 +14,12 @@
             padding: 10px;
         }
         .reserved {
+            background-color: #dc3545 !important;
+            color: white !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .date-disabled {
             background-color: #e9ecef;
             cursor: not-allowed;
         }
@@ -58,16 +64,18 @@
                         <div class="col-md-6">
                             <label class="form-label">예약 시간</label>
                             <select id="time-slot" class="form-select" required>
-                                <option>07:30 - 08:30</option>
-                                <option>12:30 - 13:30</option>
-                                <option>16:30 - 17:30</option>
-                                <option value="thursday">(목요일 한정) 15:30 - 16:30</option>
+                                <option value="">시간을 선택하세요</option>
+                                <option value="0730">07:30 - 08:30</option>
+                                <option value="1230">12:30 - 13:30</option>
+                                <option value="1630">16:30 - 17:30</option>
+                                <option value="thursday" disabled>(목요일 한정) 15:30 - 16:30</option>
                             </select>
                         </div>
                         
                         <div id="floor-selection" class="col-md-6 d-none">
                             <label class="form-label">층 선택</label>
                             <select id="floor" class="form-select">
+                                <option value="">층을 선택하세요</option>
                                 <option value="2F">2층</option>
                                 <option value="4F">4층</option>
                             </select>
@@ -106,15 +114,34 @@
             const timeSlot = document.getElementById("time-slot");
             const specialTime = timeSlot.querySelector("option[value='thursday']");
 
+            // 오늘 날짜 이후만 선택 가능하도록 설정
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            dateInput.min = tomorrow.toISOString().split('T')[0];
+
+            // 30일 이내만 예약 가능하도록 설정
+            const maxDate = new Date(today);
+            maxDate.setDate(maxDate.getDate() + 30);
+            dateInput.max = maxDate.toISOString().split('T')[0];
+
+            // Mock data for reserved seats (실제로는 서버에서 가져와야 함)
+            let reservedSeatsData = {};
+
             // 좌석 예약 상태 가져오기
             async function fetchReservedSeats(date, time) {
                 try {
+                    // 실제 서버 API 호출
                     const response = await fetch(`/api/reserved-seats?date=${date}&time=${time}`);
+                    if (!response.ok) {
+                        throw new Error('서버 응답 오류');
+                    }
                     const data = await response.json();
                     return data.reservedSeats || [];
                 } catch (error) {
                     console.error("🚨 예약된 좌석 데이터를 불러오는 중 오류 발생:", error);
-                    return [];
+                    // 에러 발생 시 기존 데이터 사용
+                    return reservedSeatsData[`${date}-${time}`] || [];
                 }
             }
 
@@ -138,9 +165,11 @@
                     if (reservedSeats.includes(i)) {
                         button.classList.add("reserved");
                         button.disabled = true;
+                        button.title = "이미 예약된 좌석입니다";
                     } else {
-                        button.addEventListener("click", function () {
-                            document.querySelectorAll(".seat").forEach(btn => btn.classList.remove("btn-primary"));
+                        button.addEventListener("click", function() {
+                            document.querySelectorAll(".seat").forEach(btn => 
+                                btn.classList.remove("btn-primary"));
                             this.classList.add("btn-primary");
                             document.getElementById("seat").value = this.dataset.seat;
                         });
@@ -148,6 +177,29 @@
 
                     seatButtonsContainer.appendChild(button);
                 }
+            }
+
+            // 날짜 유효성 검사
+            function isValidDate(date) {
+                const selectedDate = new Date(date);
+                const day = selectedDate.getDay();
+                
+                // 주말 체크 (토요일: 6, 일요일: 0)
+                if (day === 0 || day === 6) {
+                    return { valid: false, message: "🚫 주말에는 예약이 불가능합니다." };
+                }
+
+                // 과거 날짜 체크
+                if (selectedDate < tomorrow) {
+                    return { valid: false, message: "🚫 오늘 이전 날짜는 선택할 수 없습니다." };
+                }
+
+                // 30일 이후 체크
+                if (selectedDate > maxDate) {
+                    return { valid: false, message: "🚫 30일 이후는 예약할 수 없습니다." };
+                }
+
+                return { valid: true };
             }
 
             // 공간 유형에 따른 UI 업데이트
@@ -164,64 +216,84 @@
                 }
             }
 
-            // 날짜 변경 시 목요일 시간대 처리
-            dateInput.addEventListener("change", function () {
-                const selectedDate = new Date(dateInput.value);
-                const day = selectedDate.getDay();
-
-                // 주말 체크
-                if (day === 6 || day === 0) {
-                    alert("🚫 토요일과 일요일에는 예약할 수 없습니다.");
-                    dateInput.value = "";
+            // 날짜 변경 이벤트 처리
+            dateInput.addEventListener("change", function() {
+                const validation = isValidDate(this.value);
+                if (!validation.valid) {
+                    alert(validation.message);
+                    this.value = "";
                     return;
                 }
 
+                const selectedDate = new Date(this.value);
+                const day = selectedDate.getDay();
+
                 // 목요일 특별 시간대 처리
-                specialTime.disabled = (day !== 4);
-                
+                const thursdayOption = timeSlot.querySelector('option[value="thursday"]');
+                thursdayOption.disabled = day !== 4;
+                if (day !== 4 && timeSlot.value === "thursday") {
+                    timeSlot.value = "";
+                }
+
                 updateSeats();
             });
 
+            // 시간 변경 시 좌석 정보 업데이트
+            timeSlot.addEventListener("change", updateSeats);
+
+            // 초기 공간 유형 설정
+            roomType.addEventListener("change", toggleSelections);
+
             // 폼 제출 처리
-            document.getElementById("reservation-form").addEventListener("submit", async function (e) {
+            document.getElementById("reservation-form").addEventListener("submit", async function(e) {
                 e.preventDefault();
 
                 const roomTypeValue = roomType.value;
                 const seatInput = document.getElementById("seat").value;
                 const floorInput = document.getElementById("floor").value;
-                const dateInput = document.getElementById("date").value;
+                const dateValue = dateInput.value;
                 const timeSlotValue = timeSlot.value;
 
-                if (!dateInput || !timeSlotValue) {
+                // 기본 유효성 검사
+                if (!dateValue || !timeSlotValue) {
                     alert("🚨 날짜와 시간을 선택해주세요!");
                     return;
                 }
 
-                let seatValue = "";
-                let floorValue = "";
+                // 날짜 유효성 검사
+                const dateValidation = isValidDate(dateValue);
+                if (!dateValidation.valid) {
+                    alert(dateValidation.message);
+                    return;
+                }
 
+                // 개별 학습실 선택 시 추가 검증
                 if (roomTypeValue === "study") {
                     if (!seatInput) {
                         alert("🚨 좌석을 선택해주세요!");
                         return;
                     }
-                    seatValue = seatInput;
-
                     if (!floorInput) {
                         alert("🚨 층을 선택해주세요!");
                         return;
                     }
-                    floorValue = floorInput;
+
+                    // 좌석 중복 예약 확인
+                    const reservedSeats = await fetchReservedSeats(dateValue, timeSlotValue);
+                    if (reservedSeats.includes(Number(seatInput))) {
+                        alert("🚨 이미 예약된 좌석입니다. 다른 좌석을 선택해주세요.");
+                        return;
+                    }
                 }
 
                 const formData = {
                     name: document.getElementById("name").value,
                     studentId: document.getElementById("student-id").value,
                     email: document.getElementById("email").value,
-                    date: dateInput,
+                    date: dateValue,
                     roomType: roomTypeValue,
-                    floor: floorValue,
-                    seat: seatValue,
+                    floor: floorInput,
+                    seat: seatInput,
                     timeSlot: timeSlotValue
                 };
 
@@ -233,6 +305,15 @@
                     });
 
                     if (response.ok) {
+                        // 예약 성공 시 로컬 데이터 업데이트
+                        if (roomTypeValue === "study") {
+                            const key = `${dateValue}-${timeSlotValue}`;
+                            if (!reservedSeatsData[key]) {
+                                reservedSeatsData[key] = [];
+                            }
+                            reservedSeatsData[key].push(Number(seatInput));
+                        }
+
                         alert("✅ 예약이 완료되었습니다!");
                         document.getElementById("reservation-form").reset();
                         seatButtonsContainer.innerHTML = "";
@@ -245,10 +326,6 @@
                 }
             });
 
-            // 이벤트 리스너 등록
-            roomType.addEventListener("change", toggleSelections);
-            timeSlot.addEventListener("change", updateSeats);
-            
             // 초기 UI 설정
             toggleSelections();
         });
