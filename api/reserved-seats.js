@@ -19,7 +19,19 @@ export default async function handler(req, res) {
     try {
         const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
-        // Notion 데이터베이스에서 해당 날짜와 시간의 예약 조회
+        // 시간값 변환 함수
+        function convertTimeValueToSlot(timeValue) {
+            switch(timeValue) {
+                case "0730": return "07:30 - 08:30";
+                case "1230": return "12:30 - 13:30";
+                case "1630": return "16:30 - 17:30";
+                case "thursday": return "(목요일 한정) 15:30 - 16:30";
+                default: return timeValue;
+            }
+        }
+
+        console.log("조회 요청:", { date, time, convertedTime: convertTimeValueToSlot(time) });
+
         const response = await notion.databases.query({
             database_id: process.env.NOTION_DATABASE_ID,
             filter: {
@@ -33,7 +45,7 @@ export default async function handler(req, res) {
                     {
                         property: "예약 시간",
                         select: {
-                            equals: time
+                            equals: convertTimeValueToSlot(time)
                         }
                     },
                     {
@@ -46,13 +58,20 @@ export default async function handler(req, res) {
             }
         });
 
+        // 디버깅을 위한 로그
+        console.log("Notion 응답:", response.results);
+
         // 예약된 좌석 번호 추출
         const reservedSeats = response.results
-            .map(page => page.properties["좌석 번호"]?.select?.name)
+            .map(page => {
+                const seatNum = page.properties["좌석 번호"]?.select?.name;
+                console.log("좌석 번호:", seatNum);
+                return seatNum;
+            })
             .filter(seat => seat && seat !== "N/A")
             .map(seat => Number(seat));
 
-        console.log(`📅 ${date} ${time} 예약된 좌석:`, reservedSeats);
+        console.log(`📅 ${date} ${convertTimeValueToSlot(time)} 예약된 좌석:`, reservedSeats);
         return res.status(200).json({ reservedSeats });
     } catch (error) {
         console.error("❌ Notion API 오류:", error);
