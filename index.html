@@ -22,21 +22,18 @@
     </style>
 </head>
 <body>
-    <!-- 네비게이션 바 -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container px-lg-5">
             <a class="navbar-brand" href="#!">속초고등학교</a>
         </div>
     </nav>
 
-    <!-- 메인 컨텐츠 -->
     <header class="py-5">
         <div class="container px-lg-5">
             <div class="p-4 p-lg-5 bg-light rounded-3">
                 <h2 class="text-center mb-4">공간 예약</h2>
                 <form id="reservation-form">
                     <div class="row g-3">
-                        <!-- 기본 정보 입력 필드들 -->
                         <div class="col-md-6">
                             <label class="form-label">이름</label>
                             <input type="text" id="name" class="form-control" required>
@@ -64,14 +61,13 @@
                             <label class="form-label">예약 시간</label>
                             <select id="time-slot" class="form-select" required>
                                 <option value="">시간을 선택하세요</option>
-                                <option value="0730">07:30 - 08:30</option>
-                                <option value="1230">12:30 - 13:30</option>
-                                <option value="1630">16:30 - 17:30</option>
-                                <option value="thursday">(목요일 한정) 15:30 - 16:30</option>
+                                <option value="07:30 - 08:30">07:30 - 08:30</option>
+                                <option value="12:30 - 13:30">12:30 - 13:30</option>
+                                <option value="16:30 - 17:30">16:30 - 17:30</option>
+                                <option value="(목요일 한정) 15:30 - 16:30">(목요일 한정) 15:30 - 16:30</option>
                             </select>
                         </div>
                         
-                        <!-- 층 선택 -->
                         <div id="floor-selection" class="col-md-6 d-none">
                             <label class="form-label">층 선택</label>
                             <select id="floor" class="form-select">
@@ -81,7 +77,6 @@
                             </select>
                         </div>
 
-                        <!-- 좌석 선택 -->
                         <div id="seat-selection" class="col-12 d-none">
                             <div class="card p-3 mt-3">
                                 <label class="form-label">좌석 선택</label>
@@ -99,7 +94,6 @@
         </div>
     </header>
 
-    <!-- 푸터 -->
     <footer class="py-5 bg-dark">
         <div class="container">
             <p class="m-0 text-center text-white">Copyright &copy; 속초고등학교 2024</p>
@@ -108,16 +102,13 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            // 전역 변수 선언
             const roomType = document.getElementById("room-type");
             const seatSelection = document.getElementById("seat-selection");
             const seatButtonsContainer = document.getElementById("seat-buttons");
             const floorSelection = document.getElementById("floor-selection");
             const dateInput = document.getElementById("date");
             const timeSlot = document.getElementById("time-slot");
-            
-            // Mock data for reservations (서버 구현 전까지 사용)
-            let mockReservations = {};
+            const specialTime = timeSlot.querySelector('option[value="(목요일 한정) 15:30 - 16:30"]');
 
             // 날짜 제한 설정
             const today = new Date();
@@ -129,16 +120,44 @@
             maxDate.setDate(maxDate.getDate() + 30);
             dateInput.max = maxDate.toISOString().split('T')[0];
 
-            // 좌석 상태 업데이트 함수
-            function updateSeats() {
+            // 시간값 변환 함수
+            function convertTimeSlotToValue(timeSlot) {
+                switch(timeSlot) {
+                    case "07:30 - 08:30": return "0730";
+                    case "12:30 - 13:30": return "1230";
+                    case "16:30 - 17:30": return "1630";
+                    case "(목요일 한정) 15:30 - 16:30": return "thursday";
+                    default: return timeSlot;
+                }
+            }
+
+            // 좌석 예약 상태 가져오기
+            async function fetchReservedSeats(date, timeSlot) {
+                try {
+                    const timeValue = convertTimeSlotToValue(timeSlot);
+                    console.log("요청 정보:", { date, time: timeValue }); // 디버깅용
+                    
+                    const response = await fetch(`/api/reserved-seats?date=${date}&time=${timeValue}`);
+                    if (!response.ok) {
+                        throw new Error('서버 응답 오류');
+                    }
+                    const data = await response.json();
+                    console.log("서버 응답:", data); // 디버깅용
+                    return data.reservedSeats || [];
+                } catch (error) {
+                    console.error("🚨 예약된 좌석 데이터를 불러오는 중 오류 발생:", error);
+                    return [];
+                }
+            }
+
+            // 좌석 상태 업데이트
+            async function updateSeats() {
                 const date = dateInput.value;
                 const time = timeSlot.value;
                 
                 if (!date || !time) return;
                 
-                const key = `${date}-${time}`;
-                const reservedSeats = mockReservations[key] || [];
-                
+                const reservedSeats = await fetchReservedSeats(date, time);
                 seatButtonsContainer.innerHTML = "";
 
                 for (let i = 1; i <= 10; i++) {
@@ -185,22 +204,6 @@
                 return { valid: true };
             }
 
-            // 목요일 시간대 처리
-            function handleThursdayTimeSlot() {
-                const selectedDate = new Date(dateInput.value);
-                const day = selectedDate.getDay();
-                const thursdayOption = timeSlot.querySelector('option[value="thursday"]');
-                
-                if (day === 4) {
-                    thursdayOption.disabled = false;
-                } else {
-                    thursdayOption.disabled = true;
-                    if (timeSlot.value === "thursday") {
-                        timeSlot.value = "";
-                    }
-                }
-            }
-
             // 공간 유형에 따른 UI 업데이트
             function toggleSelections() {
                 if (roomType.value === "study") {
@@ -215,7 +218,7 @@
                 }
             }
 
-            // 이벤트 리스너 등록
+            // 날짜 변경 이벤트 처리
             dateInput.addEventListener("change", function() {
                 if (this.value) {
                     const validation = isValidDate(this.value);
@@ -224,70 +227,88 @@
                         this.value = "";
                         return;
                     }
-                    handleThursdayTimeSlot();
+
+                    const selectedDate = new Date(this.value);
+                    const day = selectedDate.getDay();
+                    
+                    // 목요일 특별 시간대 처리
+                    if (day === 4) {
+                        specialTime.disabled = false;
+                    } else {
+                        specialTime.disabled = true;
+                        if (timeSlot.value === "(목요일 한정) 15:30 - 16:30") {
+                            timeSlot.value = "";
+                        }
+                    }
+
                     updateSeats();
                 }
             });
 
+            // 시간 변경 시 좌석 정보 업데이트
             timeSlot.addEventListener("change", updateSeats);
+
+            // 공간 유형 변경 시 UI 업데이트
             roomType.addEventListener("change", toggleSelections);
 
             // 폼 제출 처리
-            document.getElementById("reservation-form").addEventListener("submit", function(e) {
+            document.getElementById("reservation-form").addEventListener("submit", async function(e) {
                 e.preventDefault();
 
-                const dateValue = dateInput.value;
-                const timeValue = timeSlot.value;
-                const roomTypeValue = roomType.value;
-                const seatValue = document.getElementById("seat").value;
-                const floorValue = document.getElementById("floor").value;
+                const formData = {
+                    name: document.getElementById("name").value,
+                    studentId: document.getElementById("student-id").value,
+                    email: document.getElementById("email").value,
+                    date: dateInput.value,
+                    roomType: roomType.value,
+                    floor: document.getElementById("floor").value || "N/A",
+                    seat: document.getElementById("seat").value || "N/A",
+                    timeSlot: timeSlot.value
+                };
 
-                // 기본 유효성 검사
-                if (!dateValue || !timeValue) {
+                // 유효성 검사
+                if (!formData.date || !formData.timeSlot) {
                     alert("🚨 날짜와 시간을 선택해주세요!");
                     return;
                 }
 
-                // 날짜 유효성 검사
-                const dateValidation = isValidDate(dateValue);
+                const dateValidation = isValidDate(formData.date);
                 if (!dateValidation.valid) {
                     alert(dateValidation.message);
                     return;
                 }
 
-                // 개별 학습실 선택 시 추가 검증
-                if (roomTypeValue === "study") {
-                    if (!seatValue) {
+                if (formData.roomType === "study") {
+                    if (!formData.seat || formData.seat === "N/A") {
                         alert("🚨 좌석을 선택해주세요!");
                         return;
                     }
-                    if (!floorValue) {
+                    if (!formData.floor || formData.floor === "N/A") {
                         alert("🚨 층을 선택해주세요!");
                         return;
                     }
-
-                    // 좌석 중복 예약 확인
-                    const key = `${dateValue}-${timeValue}`;
-                    const reservedSeats = mockReservations[key] || [];
-                    if (reservedSeats.includes(Number(seatValue))) {
-                        alert("🚨 이미 예약된 좌석입니다. 다른 좌석을 선택해주세요.");
-                        return;
-                    }
                 }
 
-                // Mock reservation (실제로는 서버에 저장)
-                if (roomTypeValue === "study") {
-                    const key = `${dateValue}-${timeValue}`;
-                    if (!mockReservations[key]) {
-                        mockReservations[key] = [];
-                    }
-                    mockReservations[key].push(Number(seatValue));
-                }
+                try {
+                    const response = await fetch("/api/notion", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(formData),
+                    });
 
-                alert("✅ 예약이 완료되었습니다!");
-                e.target.reset();
-                seatButtonsContainer.innerHTML = "";
-                updateSeats();
+                    if (response.ok) {
+                        alert("✅ 예약이 완료되었습니다!");
+                        this.reset();
+                        seatButtonsContainer.innerHTML = "";
+                        updateSeats();
+                    } else {
+                        const error = await response.json();
+                        throw new Error(error.message || "예약 실패");
+                    }
+                } catch (error) {
+                    console.error("예약 오류:", error);
+                    alert(`❌ ${error.message || "예약 중 오류가 발생했습니다. 다시 시도해주세요."}`);
+                }
             });
 
             // 초기 UI 설정
