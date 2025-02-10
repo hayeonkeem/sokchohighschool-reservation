@@ -13,6 +13,10 @@
             gap: 10px;
             padding: 10px;
         }
+        .reserved {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -98,47 +102,101 @@
             const seatSelection = document.getElementById("seat-selection");
             const seatButtonsContainer = document.getElementById("seat-buttons");
             const floorSelection = document.getElementById("floor-selection");
+            const dateInput = document.getElementById("date");
+            const timeSlot = document.getElementById("time-slot");
+            const specialTime = timeSlot.querySelector("option[value='thursday']");
 
-            function generateSeats() {
+            // 좌석 예약 상태 가져오기
+            async function fetchReservedSeats(date, time) {
+                try {
+                    const response = await fetch(`/api/reserved-seats?date=${date}&time=${time}`);
+                    const data = await response.json();
+                    return data.reservedSeats || [];
+                } catch (error) {
+                    console.error("🚨 예약된 좌석 데이터를 불러오는 중 오류 발생:", error);
+                    return [];
+                }
+            }
+
+            // 좌석 상태 업데이트
+            async function updateSeats() {
+                const date = dateInput.value;
+                const time = timeSlot.value;
+                
+                if (!date || !time) return;
+                
+                const reservedSeats = await fetchReservedSeats(date, time);
                 seatButtonsContainer.innerHTML = "";
+
                 for (let i = 1; i <= 10; i++) {
                     const button = document.createElement("button");
                     button.type = "button";
                     button.className = "btn btn-outline-secondary seat w-100 py-3";
                     button.dataset.seat = i;
                     button.textContent = i;
-                    button.addEventListener("click", function () {
-                        document.querySelectorAll(".seat").forEach(btn => btn.classList.remove("btn-primary"));
-                        this.classList.add("btn-primary");
-                        document.getElementById("seat").value = this.dataset.seat;
-                    });
+
+                    if (reservedSeats.includes(i)) {
+                        button.classList.add("reserved");
+                        button.disabled = true;
+                    } else {
+                        button.addEventListener("click", function () {
+                            document.querySelectorAll(".seat").forEach(btn => btn.classList.remove("btn-primary"));
+                            this.classList.add("btn-primary");
+                            document.getElementById("seat").value = this.dataset.seat;
+                        });
+                    }
+
                     seatButtonsContainer.appendChild(button);
                 }
             }
 
+            // 공간 유형에 따른 UI 업데이트
             function toggleSelections() {
                 if (roomType.value === "study") {
                     seatSelection.classList.remove("d-none");
                     floorSelection.classList.remove("d-none");
-                    generateSeats();
+                    updateSeats();
                 } else {
                     seatSelection.classList.add("d-none");
                     floorSelection.classList.add("d-none");
-                    document.getElementById("seat").value = ""; 
+                    document.getElementById("seat").value = "";
                     document.getElementById("floor").value = "";
                 }
             }
 
-            roomType.addEventListener("change", toggleSelections);
-            toggleSelections();
+            // 날짜 변경 시 목요일 시간대 처리
+            dateInput.addEventListener("change", function () {
+                const selectedDate = new Date(dateInput.value);
+                const day = selectedDate.getDay();
 
+                // 주말 체크
+                if (day === 6 || day === 0) {
+                    alert("🚫 토요일과 일요일에는 예약할 수 없습니다.");
+                    dateInput.value = "";
+                    return;
+                }
+
+                // 목요일 특별 시간대 처리
+                specialTime.disabled = (day !== 4);
+                
+                updateSeats();
+            });
+
+            // 폼 제출 처리
             document.getElementById("reservation-form").addEventListener("submit", async function (e) {
                 e.preventDefault();
 
-                const roomTypeValue = document.getElementById("room-type").value;
+                const roomTypeValue = roomType.value;
                 const seatInput = document.getElementById("seat").value;
                 const floorInput = document.getElementById("floor").value;
-                
+                const dateInput = document.getElementById("date").value;
+                const timeSlotValue = timeSlot.value;
+
+                if (!dateInput || !timeSlotValue) {
+                    alert("🚨 날짜와 시간을 선택해주세요!");
+                    return;
+                }
+
                 let seatValue = "";
                 let floorValue = "";
 
@@ -157,14 +215,14 @@
                 }
 
                 const formData = {
-                    name: document.getElementById("name")?.value || "",
-                    studentId: document.getElementById("student-id")?.value || "",
-                    email: document.getElementById("email")?.value || "",
-                    date: document.getElementById("date")?.value || "",
+                    name: document.getElementById("name").value,
+                    studentId: document.getElementById("student-id").value,
+                    email: document.getElementById("email").value,
+                    date: dateInput,
                     roomType: roomTypeValue,
                     floor: floorValue,
                     seat: seatValue,
-                    timeSlot: document.getElementById("time-slot")?.value || ""
+                    timeSlot: timeSlotValue
                 };
 
                 try {
@@ -186,6 +244,13 @@
                     alert("❌ 예약 중 오류가 발생했습니다. 다시 시도해주세요.");
                 }
             });
+
+            // 이벤트 리스너 등록
+            roomType.addEventListener("change", toggleSelections);
+            timeSlot.addEventListener("change", updateSeats);
+            
+            // 초기 UI 설정
+            toggleSelections();
         });
     </script>
 </body>
