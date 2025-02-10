@@ -44,7 +44,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container px-lg-5">
             <a class="navbar-brand" href="#!">
-                <img src="/mascot.png" alt="마스코트" class="school-logo">
+                <img src="mascot.png" alt="" class="school-logo">
                 속초고등학교
             </a>
         </div>
@@ -142,30 +142,6 @@
             maxDate.setDate(maxDate.getDate() + 30);
             dateInput.max = maxDate.toISOString().split('T')[0];
 
-            // 좌석 생성 함수
-            function generateSeats() {
-                seatButtonsContainer.innerHTML = "";
-                for (let i = 1; i <= 10; i++) {
-                    const button = document.createElement("button");
-                    button.type = "button";
-                    button.className = "btn btn-outline-secondary seat w-100 py-3";
-                    button.dataset.seat = i;
-                    button.textContent = i;
-                    button.addEventListener("click", function() {
-                        document.querySelectorAll(".seat").forEach(btn => 
-                            btn.classList.remove("btn-primary"));
-                        this.classList.add("btn-primary");
-                        document.getElementById("seat").value = this.dataset.seat;
-                    });
-                    seatButtonsContainer.appendChild(button);
-                }
-                
-                // 예약된 좌석 상태 업데이트
-                if (dateInput.value && timeSlot.value) {
-                    updateSeats();
-                }
-            }
-
             // 좌석 예약 상태 가져오기
             async function fetchReservedSeats(date, timeSlot) {
                 try {
@@ -193,33 +169,39 @@
                 }
             }
 
-            // 좌석 상태 업데이트
-            async function updateSeats() {
+            // 좌석 생성 함수
+            async function generateSeats() {
+                seatButtonsContainer.innerHTML = "";
                 const date = dateInput.value;
                 const time = timeSlot.value;
+                let reservedSeats = [];
                 
-                console.log("updateSeats 호출됨:", { date, time });
-                
-                if (!date || !time) {
-                    console.log("날짜 또는 시간이 선택되지 않음");
-                    return;
+                if (date && time) {
+                    reservedSeats = await fetchReservedSeats(date, time);
                 }
                 
-                const reservedSeats = await fetchReservedSeats(date, time);
-                console.log("업데이트할 예약 좌석:", reservedSeats);
-                
-                document.querySelectorAll(".seat").forEach(button => {
-                    const seatNumber = Number(button.dataset.seat);
-                    if (reservedSeats.includes(seatNumber)) {
-                        button.classList.add("reserved");
+                for (let i = 1; i <= 10; i++) {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.dataset.seat = i;
+                    button.textContent = i;
+
+                    if (reservedSeats.includes(i)) {
+                        button.className = "btn btn-outline-secondary seat w-100 py-3 reserved";
                         button.disabled = true;
                         button.title = "이미 예약된 좌석입니다";
                     } else {
-                        button.classList.remove("reserved");
-                        button.disabled = false;
-                        button.title = "";
+                        button.className = "btn btn-outline-secondary seat w-100 py-3";
+                        button.addEventListener("click", function() {
+                            document.querySelectorAll(".seat").forEach(btn => 
+                                btn.classList.remove("btn-primary"));
+                            this.classList.add("btn-primary");
+                            document.getElementById("seat").value = this.dataset.seat;
+                        });
                     }
-                });
+                    
+                    seatButtonsContainer.appendChild(button);
+                }
             }
 
             // 날짜 유효성 검사
@@ -240,15 +222,6 @@
                 }
 
                 return { valid: true };
-            }
-
-            // 폼 초기화 함수
-            function resetForm() {
-                document.getElementById("reservation-form").reset();
-                seatButtonsContainer.innerHTML = "";
-                if (roomType.value === "study") {
-                    generateSeats();
-                }
             }
 
             // 공간 유형에 따른 UI 업데이트
@@ -289,7 +262,7 @@
                     }
 
                     if (timeSlot.value) {
-                        updateSeats();
+                        generateSeats();
                     }
                 }
             });
@@ -297,7 +270,7 @@
             timeSlot.addEventListener("change", function() {
                 console.log("시간 변경됨:", this.value);
                 if (dateInput.value) {
-                    updateSeats();
+                    generateSeats();
                 }
             });
 
@@ -359,7 +332,9 @@
                     }
 
                     alert("✅ 예약이 완료되었습니다!");
-                    resetForm();
+                    document.getElementById("reservation-form").reset();
+                    roomType.value = "study";  // 기본값으로 설정
+                    toggleSelections();  // UI 새로고침
                 } catch (error) {
                     console.error("예약 오류:", error);
                     alert(`❌ ${error.message || "예약 중 오류가 발생했습니다. 다시 시도해주세요."}`);
