@@ -45,7 +45,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container px-lg-5">
             <a class="navbar-brand" href="#!">
-                <img src="https://sokchohighschool-reservation.vercel.app/mascot.png" alt="" class="school-logo">
+                <img src="mascot.png" alt="" class="school-logo">
                 속초고등학교
             </a>
         </div>
@@ -144,9 +144,9 @@
             dateInput.max = maxDate.toISOString().split('T')[0];
 
             // 좌석 예약 상태 가져오기
-            async function fetchReservedSeats(date, timeSlot) {
+            async function fetchReservedSeats(date, time) {
                 try {
-                    const response = await fetch(`/api/reserved-seats?date=${date}&time=${timeSlot}`, {
+                    const response = await fetch(`/api/reserved-seats?date=${date}&time=${time}`, {
                         method: 'GET',
                         headers: {
                             'Accept': 'application/json',
@@ -159,6 +159,7 @@
                     }
                     
                     const data = await response.json();
+                    console.log("예약된 좌석 데이터:", data);
                     return data.reservedSeats || [];
                 } catch (error) {
                     console.error("API 호출 오류:", error);
@@ -190,23 +191,39 @@
             }
 
             // 좌석 생성 함수
-            function generateSeats() {
+            async function generateSeats() {
                 seatButtonsContainer.innerHTML = "";
+                
+                const date = dateInput.value;
+                const time = timeSlot.value;
+                let reservedSeats = [];
+                
+                if (date && time) {
+                    reservedSeats = await fetchReservedSeats(date, time);
+                }
+                
                 for (let i = 1; i <= 10; i++) {
                     const button = document.createElement("button");
                     button.type = "button";
-                    button.className = "btn btn-outline-secondary seat w-100 py-3";
                     button.dataset.seat = i;
                     button.textContent = i;
-                    button.addEventListener("click", function() {
-                        document.querySelectorAll(".seat").forEach(btn => 
-                            btn.classList.remove("btn-primary"));
-                        this.classList.add("btn-primary");
-                        document.getElementById("seat").value = this.dataset.seat;
-                    });
+
+                    if (reservedSeats.includes(i)) {
+                        button.className = "btn btn-outline-secondary seat w-100 py-3 reserved";
+                        button.disabled = true;
+                        button.title = "이미 예약된 좌석입니다";
+                    } else {
+                        button.className = "btn btn-outline-secondary seat w-100 py-3";
+                        button.addEventListener("click", function() {
+                            document.querySelectorAll(".seat").forEach(btn => 
+                                btn.classList.remove("btn-primary"));
+                            this.classList.add("btn-primary");
+                            document.getElementById("seat").value = this.dataset.seat;
+                        });
+                    }
+                    
                     seatButtonsContainer.appendChild(button);
                 }
-                updateSeats();
             }
 
             // 날짜 유효성 검사
@@ -266,14 +283,14 @@
                     }
 
                     if (timeSlot.value) {
-                        updateSeats();
+                        generateSeats();
                     }
                 }
             });
 
             timeSlot.addEventListener("change", function() {
                 if (dateInput.value) {
-                    updateSeats();
+                    generateSeats();
                 }
             });
 
@@ -334,7 +351,7 @@
                     alert("✅ 예약이 완료되었습니다!");
                     this.reset();
                     roomType.value = "study";
-                    toggleSelections();
+                    await generateSeats();
                 } catch (error) {
                     console.error("예약 오류:", error);
                     alert(`❌ ${error.message || "예약 중 오류가 발생했습니다. 다시 시도해주세요."}`);
