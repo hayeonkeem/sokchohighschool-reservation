@@ -6,7 +6,7 @@
   ],
   "routes": [
     { "src": "/api/notion", "dest": "/api/notion.js" },
-    { "src": "/(.*)\\.(png|jpg|jpeg|gif|svg)$", "dest": "/$1.$2" },
+    { "src": "/(.*)\\.(png|jpg|jpeg|gif|svg|css|js)$", "dest": "/$1.$2" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
