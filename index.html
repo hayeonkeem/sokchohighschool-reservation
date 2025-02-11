@@ -13,13 +13,6 @@
             gap: 10px;
             padding: 10px;
         }
-        .reserved {
-            background-color: #dc3545 !important;
-            color: white !important;
-            cursor: not-allowed;
-            opacity: 1;
-            border: none !important;
-        }
         .seat {
             height: 50px;
             font-size: 1.1rem;
@@ -27,10 +20,22 @@
         .seat.btn-primary {
             border: none;
         }
-        .reserved:hover {
+        .seat:hover:not(.reserved) {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .reserved {
             background-color: #dc3545 !important;
             color: white !important;
             cursor: not-allowed;
+            opacity: 1 !important;
+            border: none !important;
+            pointer-events: none;
+        }
+        .reserved:hover, .reserved:active, .reserved:focus {
+            background-color: #dc3545 !important;
+            color: white !important;
+            opacity: 1 !important;
         }
         .school-logo {
             height: 40px;
@@ -45,7 +50,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container px-lg-5">
             <a class="navbar-brand" href="#!">
-                <img src="mascot.png" alt="" class="school-logo">
+                <img src="./mascot.png" alt="" class="school-logo">
                 속초고등학교
             </a>
         </div>
@@ -122,7 +127,6 @@
             <p class="m-0 text-center text-white">Copyright &copy; 속초고등학교 2025</p>
         </div>
     </footer>
-
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             const roomType = document.getElementById("room-type");
@@ -143,11 +147,46 @@
             maxDate.setDate(maxDate.getDate() + 30);
             dateInput.max = maxDate.toISOString().split('T')[0];
 
+            // 날짜 유효성 검사
+            function isValidDate(date) {
+                const selectedDate = new Date(date);
+                const today = new Date();
+                const currentHour = today.getHours();
+                const currentMinute = today.getMinutes();
+                const day = selectedDate.getDay();
+                
+                // 오늘 날짜와 선택된 날짜를 비교하기 위해 시간을 제거
+                const todayWithoutTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const selectedWithoutTime = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+                const tomorrow = new Date(todayWithoutTime);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                // 16:30 이후면 다음날부터 예약 가능
+                if (currentHour > 16 || (currentHour === 16 && currentMinute >= 30)) {
+                    if (selectedWithoutTime <= tomorrow) {
+                        return { valid: false, message: "🚫 다음날부터 예약 가능합니다." };
+                    }
+                } else {
+                    if (selectedWithoutTime < todayWithoutTime) {
+                        return { valid: false, message: "🚫 오늘 16:30까지 내일 예약이 가능합니다." };
+                    }
+                }
+
+                if (selectedDate > maxDate) {
+                    return { valid: false, message: "🚫 30일 이후는 예약할 수 없습니다." };
+                }
+
+                if (day === 0 || day === 6) {
+                    return { valid: false, message: "🚫 주말은 예약할 수 없습니다." };
+                }
+
+                return { valid: true };
+            }
+
             // 좌석 예약 상태 가져오기
             async function fetchReservedSeats(date, time) {
                 try {
                     const response = await fetch(`/api/reserved-seats?date=${date}&time=${time}`, {
-                        method: 'GET',
                         headers: {
                             'Accept': 'application/json',
                             'Content-Type': 'application/json'
@@ -167,39 +206,21 @@
                 }
             }
 
-            // 좌석 상태 업데이트
-            async function updateSeats() {
-                const date = dateInput.value;
-                const time = timeSlot.value;
-                
-                if (!date || !time) return;
-                
-                const reservedSeats = await fetchReservedSeats(date, time);
-                
-                document.querySelectorAll(".seat").forEach(button => {
-                    const seatNumber = Number(button.dataset.seat);
-                    if (reservedSeats.includes(seatNumber)) {
-                        button.className = "btn btn-outline-secondary seat w-100 py-3 reserved";
-                        button.disabled = true;
-                        button.title = "이미 예약된 좌석입니다";
-                    } else {
-                        button.className = "btn btn-outline-secondary seat w-100 py-3";
-                        button.disabled = false;
-                        button.title = "";
-                    }
-                });
-            }
-
             // 좌석 생성 함수
             async function generateSeats() {
                 seatButtonsContainer.innerHTML = "";
-                
                 const date = dateInput.value;
                 const time = timeSlot.value;
-                let reservedSeats = [];
                 
+                // 예약된 좌석 정보 가져오기
+                let reservedSeats = [];
                 if (date && time) {
-                    reservedSeats = await fetchReservedSeats(date, time);
+                    try {
+                        reservedSeats = await fetchReservedSeats(date, time);
+                        console.log("현재 예약된 좌석:", reservedSeats);
+                    } catch (error) {
+                        console.error("좌석 정보 조회 실패:", error);
+                    }
                 }
                 
                 for (let i = 1; i <= 10; i++) {
@@ -207,7 +228,7 @@
                     button.type = "button";
                     button.dataset.seat = i;
                     button.textContent = i;
-
+                    
                     if (reservedSeats.includes(i)) {
                         button.className = "btn btn-outline-secondary seat w-100 py-3 reserved";
                         button.disabled = true;
@@ -224,26 +245,6 @@
                     
                     seatButtonsContainer.appendChild(button);
                 }
-            }
-
-            // 날짜 유효성 검사
-            function isValidDate(date) {
-                const selectedDate = new Date(date);
-                const day = selectedDate.getDay();
-                
-                if (selectedDate < tomorrow) {
-                    return { valid: false, message: "🚫 내일부터 예약 가능합니다." };
-                }
-
-                if (selectedDate > maxDate) {
-                    return { valid: false, message: "🚫 30일 이후는 예약할 수 없습니다." };
-                }
-
-                if (day === 0 || day === 6) {
-                    return { valid: false, message: "🚫 주말은 예약할 수 없습니다." };
-                }
-
-                return { valid: true };
             }
 
             // 공간 유형에 따른 UI 업데이트
@@ -334,6 +335,12 @@
                 }
 
                 try {
+                    const response = await fetch("/api/notion", {
+                        method: "POST",
+                        headers: { 
+                            'Accept': 'application/json',
+                            'Content-Type':
+                                try {
                     const response = await fetch("/api/notion", {
                         method: "POST",
                         headers: { 
