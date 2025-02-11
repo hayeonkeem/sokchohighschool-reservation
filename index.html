@@ -339,12 +339,6 @@
                         method: "POST",
                         headers: { 
                             'Accept': 'application/json',
-                            'Content-Type':
-                                try {
-                    const response = await fetch("/api/notion", {
-                        method: "POST",
-                        headers: { 
-                            'Accept': 'application/json',
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify(formData),
@@ -358,7 +352,7 @@
                     alert("✅ 예약이 완료되었습니다!");
                     this.reset();
                     roomType.value = "study";
-                    await generateSeats();
+                    toggleSelections(); // 이 부분을 추가하여 UI를 초기화합니다
                 } catch (error) {
                     console.error("예약 오류:", error);
                     alert(`❌ ${error.message || "예약 중 오류가 발생했습니다. 다시 시도해주세요."}`);
