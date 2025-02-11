@@ -2,7 +2,6 @@
 import { Client } from "@notionhq/client";
 
 export default async function handler(req, res) {
-    // CORS 및 Content-Type 헤더 설정
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -21,8 +20,6 @@ export default async function handler(req, res) {
     try {
         const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
-        console.log("조회 요청:", { date, time });
-
         const response = await notion.databases.query({
             database_id: process.env.NOTION_DATABASE_ID,
             filter: {
@@ -38,36 +35,22 @@ export default async function handler(req, res) {
                         select: {
                             equals: time
                         }
-                    },
-                    {
-                        property: "공간 유형",
-                        select: {
-                            equals: "study"
-                        }
                     }
                 ]
             }
         });
 
-        console.log("Notion 응답:", response.results);
-
-        // 예약된 좌석만 추출
         const reservedSeats = response.results
+            .filter(page => page.properties["공간 유형"]?.select?.name === "study")
             .map(page => {
                 const seatNum = page.properties["좌석 번호"]?.select?.name;
-                console.log("좌석 번호 추출:", seatNum);
-                return seatNum && seatNum !== "N/A" ? Number(seatNum) : null;
+                return seatNum ? Number(seatNum) : null;
             })
             .filter(seat => seat !== null);
 
-        console.log("최종 예약된 좌석:", reservedSeats);
-
-        return res.status(200).json({ 
-            reservedSeats,
-            debug: { date, time, resultsCount: response.results.length }
-        });
+        return res.status(200).json({ reservedSeats });
     } catch (error) {
-        console.error("Notion API 오류:", error);
+        console.error("API Error:", error);
         return res.status(500).json({ error: error.message });
     }
 }
